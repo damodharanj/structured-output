@@ -7,6 +7,7 @@ import { executeLLM } from './services/llmService';
 import { LLMProvider, LLMModel } from './services/types';
 import { DEFAULT_PROMPT, DEFAULT_JSON_SCHEMA } from './constants/defaults';
 import { AboutModal } from './components/AboutModal';  // Add import
+import Ajv from 'ajv';
 
 function getQueryParams() {
   const params = new URLSearchParams(window.location.search);
@@ -16,6 +17,8 @@ function getQueryParams() {
   };
 }
 
+const ajv = new Ajv({ allErrors: true });
+
 function updateQueryParams(prompt: string, schema: string) {
   const params = new URLSearchParams();
   if (prompt) params.set('prompt', prompt);
@@ -23,6 +26,19 @@ function updateQueryParams(prompt: string, schema: string) {
   
   const newUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
   window.history.replaceState({}, '', newUrl);
+}
+
+function formatJSON(input: any, spaces = 2) {
+  try {
+    // If input is a string, parse it first
+    const jsonObject = typeof input === "string" ? JSON.parse(input) : input;
+
+    // Stringify with formatting
+    return JSON.stringify(jsonObject, null, spaces);
+  } catch (error) {
+    // Handle invalid JSON
+    return input;
+  }
 }
 
 export function App() {
@@ -57,24 +73,40 @@ export function App() {
     setJsonSchema(newSchema);
   };
 
+  // Inside App component
   const validateOutput = (newOutput: string) => {
     if (mode !== 'structured') {
       setOutput(newOutput);
-      return
-    };
-    
+      return;
+    }
+
     try {
       // First check if it's valid JSON
       const parsedOutput = JSON.parse(newOutput);
       setOutput(newOutput);
-      setValidation('Valid JSON response received');
-  
-      // Here you could add additional schema validation if needed
-      // For now we just verify it's valid JSON
-      
+
+      // Parse the schema
+      try {
+        const schema = JSON.parse(jsonSchema);
+        
+        // Validate against schema
+        const validate = ajv.compile(schema);
+        const valid = validate(parsedOutput);
+
+        if (valid) {
+          setValidation('✅ Valid JSON that matches the schema');
+        } else {
+          const errors = validate.errors?.map(err => 
+            `${err.instancePath} ${err.message}`
+          ).join('\n');
+          setValidation(`❌ Schema validation errors:\n${errors}`);
+        }
+      } catch (schemaError) {
+        setValidation(`Error parsing schema: ${(schemaError as Error).message}`);
+      }
     } catch (error) {
       setOutput(newOutput);
-      setValidation(`Error: Invalid JSON - ${(error as Error).message}`);
+      setValidation(`❌ Invalid JSON: ${(error as Error).message}`);
     }
   };
 
@@ -137,7 +169,7 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-slate-900 p-2 sm:p-4">
-      <div className="max-w-7xl mx-auto bg-slate-800 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
+      <div style={{overflowX: 'scroll'}} className="mx-auto bg-slate-800 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
         <Header
           mode={mode}
           setMode={handleModeChange}
