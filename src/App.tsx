@@ -8,6 +8,7 @@ import { LLMProvider, LLMModel } from './services/types';
 import { DEFAULT_PROMPT, DEFAULT_JSON_SCHEMA } from './constants/defaults';
 import { AboutModal } from './components/AboutModal';  // Add import
 import Ajv from 'ajv';
+import { Analytics } from "@vercel/analytics/react"
 
 function getQueryParams() {
   const params = new URLSearchParams(window.location.search);
@@ -234,6 +235,7 @@ export function App() {
         isOpen={isAboutOpen}
         onClose={() => setIsAboutOpen(false)}
       />
+    <Analytics></Analytics>
     </div>
   );
 }
