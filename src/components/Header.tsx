@@ -45,7 +45,7 @@ export function Header({
 
   return (
     <div className="bg-slate-800 p-4 flex items-center juxstify-between border-b border-slate-700">
-      <h1 className="text-white font-medium">JSONSchema Structured Outpuxt Playground</h1>
+      <h1 className="text-white font-medium">JSONSchema Structured Output Playground</h1>
       
       <div className="flex-1" />
       
