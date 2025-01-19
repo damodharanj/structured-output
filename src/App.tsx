@@ -7,23 +7,27 @@ import { executeLLM } from './services/llmService';
 import { LLMProvider, LLMModel } from './services/types';
 import { DEFAULT_PROMPT, DEFAULT_JSON_SCHEMA } from './constants/defaults';
 import { AboutModal } from './components/AboutModal';  // Add import
-import Ajv from 'ajv';
+import Ajv from 'ajv/dist/2020';
 import { Analytics } from "@vercel/analytics/react"
+import { ValidatorType, validatorOptions } from './services/types';
+import { validateWithAjv, validateWithHyperjump } from './services/validators';
 
 function getQueryParams() {
   const params = new URLSearchParams(window.location.search);
   return {
     prompt: params.get('prompt') || '',
-    schema: params.get('schema') || ''
+    schema: params.get('schema') || '',
+    output: params.get('output') || ''
   };
 }
 
-const ajv = new Ajv({ allErrors: true });
+const ajv = new Ajv({ strict: true, strictRequired: true, allErrors: true, strictSchema: false, dynamicRef: true });
 
-function updateQueryParams(prompt: string, schema: string) {
+function updateQueryParams(prompt: string, schema: string, output: string) {
   const params = new URLSearchParams();
   if (prompt) params.set('prompt', prompt);
   if (schema) params.set('schema', schema);
+  if (output) params.set('output', output);
   
   const newUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
   window.history.replaceState({}, '', newUrl);
@@ -44,25 +48,27 @@ function formatJSON(input: any, spaces = 2) {
 
 export function App() {
   // Get initial values from URL params or defaults
-  const { prompt: urlPrompt, schema: urlSchema } = getQueryParams();
+  const { prompt: urlPrompt, schema: urlSchema, output: urlOutput } = getQueryParams();
   
   const [mode, setMode] = useState<'normal' | 'structured'>('structured');
   const [selectedLLM, setSelectedLLM] = useState<LLMProvider>('OpenAI');
   const [model, setModel] = useState<LLMModel>('gpt-4o-mini');
   // Use URL params as initial values, falling back to defaults if not present
   const [prompt, setPrompt] = useState(urlPrompt || DEFAULT_PROMPT);
-  const [output, setOutput] = useState('');
+  const [output, setOutput] = useState(urlOutput || '');
   const [jsonSchema, setJsonSchema] = useState(urlSchema || DEFAULT_JSON_SCHEMA);
   const [validation, setValidation] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [apiKey, setApiKey] = useApiKey(selectedLLM);
   const [isLoading, setIsLoading] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);  // Add state
+  const [isPromptVisible, setIsPromptVisible] = useState(true);
+  const [validator, setValidator] = useState<ValidatorType>('AJV');
 
   // Update URL when prompt or schema changes
   useEffect(() => {
-    updateQueryParams(prompt, jsonSchema);
-  }, [prompt, jsonSchema]);
+    updateQueryParams(prompt, jsonSchema, output);
+  }, [prompt, jsonSchema, output]);
 
   // Custom prompt setter that updates both state and URL
   const handlePromptChange = (newPrompt: string) => {
@@ -74,8 +80,13 @@ export function App() {
     setJsonSchema(newSchema);
   };
 
+  const handleOutputChange = (newOutput: string) => {
+    setOutput(newOutput);
+    validateOutput(newOutput);
+  };
+
   // Inside App component
-  const validateOutput = (newOutput: string) => {
+  const validateOutput = async (newOutput: string) => {
     if (mode !== 'structured') {
       setOutput(newOutput);
       return;
@@ -84,25 +95,27 @@ export function App() {
     try {
       // First check if it's valid JSON
       const parsedOutput = JSON.parse(newOutput);
+      // handleOutputChange(newOutput);
       setOutput(newOutput);
 
       // Parse the schema
       try {
         const schema = JSON.parse(jsonSchema);
         
-        // Validate against schema
-        const validate = ajv.compile(schema);
-        const valid = validate(parsedOutput);
+        const validation = validator === 'AJV' 
+          ? await validateWithAjv(schema, parsedOutput)
+          : await validateWithHyperjump(schema, parsedOutput);
 
-        if (valid) {
+        if (validation.valid) {
           setValidation('✅ Valid JSON that matches the schema');
         } else {
-          const errors = validate.errors?.map(err => 
+          const errors = ((validation as any).errors)?.map((err: any) => 
             `${err.instancePath} ${err.message}`
           ).join('\n');
           setValidation(`❌ Schema validation errors:\n${errors}`);
         }
       } catch (schemaError) {
+        setOutput(newOutput);
         setValidation(`Error parsing schema: ${(schemaError as Error).message}`);
       }
     } catch (error) {
@@ -182,33 +195,49 @@ export function App() {
           onModelChange={setModel}
           isLoading={isLoading}
           onAbout={() => setIsAboutOpen(true)}
+          isPromptVisible={isPromptVisible}
+          onTogglePrompt={() => setIsPromptVisible(!isPromptVisible)}
+          validator={validator}
+          onValidatorChange={setValidator}
         />
         
         {/* Updated grid layout for responsiveness */}
-        <div style={{overflow: 'scroll'}} className="grid grid-cols-1 md:grid-cols-2 gap-px bg-slate-700 h-[calc(100vh-8rem)]">
-          <Editor
-            label="Prompt"
-            value={prompt}
-            onChange={handlePromptChange}
-            placeholder="Enter your prompt here..."
-            className="h-[300px] md:h-auto" // Fixed height on mobile
-          />
-          <Editor
-            label="Output"
-            value={output}
-            onChange={validateOutput}
-            placeholder="Response will appear here..."
-            className="h-[300px] md:h-auto" // Fixed height on mobile
-          />
-          
-          {mode === 'structured' && (
-            <>
+        {/* Replace the existing grid div with this updated version */}
+        <div style={{overflow: 'scroll'}} className="grid grid-cols-12 gap-px bg-slate-700 h-[calc(100vh-8rem)]">
+          {/* Left column - 8 columns wide */}
+            <div className="col-span-6 flex flex-col gap-px">
+              <div className={`${isPromptVisible ? 'col-span-6' : 'hidden'} flex-1`}>
+                <Editor
+                  label="Prompt"
+                  value={prompt}
+                  onChange={handlePromptChange}
+                  placeholder="Enter your prompt here..."
+                />
+              </div>
               <Editor
-                label="JSONSchema"
-                value={jsonSchema}
-                onChange={handleSchemaChange}
-                placeholder="Enter your JSON schema here..."
-                className="h-[300px] md:h-auto" // Fixed height on mobile
+                label={
+                  <div className="flex justify-between items-center w-full">
+                    <span>Output</span>
+                    <button 
+                      onClick={() => {
+                        try {
+                          const formatted = formatJSON(output);
+                          validateOutput(formatted);
+                        } catch (error) {
+                          // If formatting fails, keep existing output
+                          console.error('Failed to format JSON:', error);
+                        }
+                      }}
+                      className="text-xs bg-slate-600 hover:bg-slate-500 text-white px-2 py-1 rounded"
+                    >
+                      Format JSON
+                    </button>
+                  </div>
+                }
+                value={output}
+                onChange={validateOutput}
+                placeholder="Response will appear here..."
+                className="flex-1"
               />
               <Editor
                 label="Validation / Errors"
@@ -216,10 +245,22 @@ export function App() {
                 onChange={setValidation}
                 placeholder="Validation results will appear here..."
                 readOnly
-                className="h-[300px] md:h-auto" // Fixed height on mobile
+                className="flex-1"
               />
-            </>
-          )}
+            </div>
+
+          {/* Right column - 4 columns wide */}
+          <div className="col-span-6">
+            {mode === 'structured' && (
+              <Editor
+                label="JSONSchema"
+                value={jsonSchema}
+                onChange={handleSchemaChange}
+                placeholder="Enter your JSON schema here..."
+                className="h-full"
+              />
+            )}
+          </div>
         </div>
       </div>
 

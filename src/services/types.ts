@@ -6,7 +6,8 @@ export const llmOptions = ['OpenAI', 'Ollama'] as const;
 // ]  as const;
 export type LLMProvider = typeof llmOptions[number];
 
-
+export const validatorOptions = ['AJV', 'Hyperjump'] as const;
+export type ValidatorType = typeof validatorOptions[number];
 
 export const modelsByProvider = {
   OpenAI: ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo'] as const,

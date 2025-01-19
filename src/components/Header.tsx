@@ -1,6 +1,6 @@
 import React from 'react';
 import { Settings, Play, Loader2,Info } from 'lucide-react';
-import { LLMProvider, LLMModel, llmOptions, modelsByProvider } from '../services/types';
+import { LLMProvider, LLMModel, llmOptions, modelsByProvider, validatorOptions, ValidatorType } from '../services/types';
 
 interface HeaderProps {
   mode: 'normal' | 'structured';
@@ -13,6 +13,10 @@ interface HeaderProps {
   onModelChange: (model: LLMModel) => void;
   isLoading: boolean;
   onAbout: () => void;
+  isPromptVisible: boolean;
+  onTogglePrompt: () => void;
+  validator: ValidatorType;
+  onValidatorChange: (validator: ValidatorType) => void;
 }
 
 export function Header({ 
@@ -25,7 +29,11 @@ export function Header({
   model,
   onModelChange,
   isLoading,
-  onAbout
+  onAbout,
+  isPromptVisible,
+  onTogglePrompt,
+  validator,
+  onValidatorChange
 }: HeaderProps) {
   const modelOptions = modelsByProvider[selectedLLM];
 
@@ -44,7 +52,7 @@ export function Header({
   };
 
   return (
-    <div className="bg-slate-800 p-4 flex items-center juxstify-between border-b border-slate-700">
+    <div className="bg-slate-800 p-4 flex items-center justify-between border-b border-slate-700">
       <h1 className="text-white font-medium">JSONSchema Structured Output Playground</h1>
       
       <div className="flex-1" />
@@ -57,6 +65,16 @@ export function Header({
       >
         <option value="normal">Normal</option>
         <option value="structured">Structured</option>
+      </select>
+
+      <select 
+        value={validator}
+        onChange={(e) => onValidatorChange(e.target.value)}
+        className="bg-slate-700 text-white px-3 py-1.5 rounded-md border border-slate-600"
+      >
+        {validatorOptions.map(v => (
+          <option key={v} value={v}>{v}</option>
+        ))}
       </select>
 
       <div className="flex items-center gap-2">
@@ -89,6 +107,13 @@ export function Header({
       >
         {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
         Execute
+      </button>
+
+      <button
+        onClick={onTogglePrompt}
+        className="text-slate-300 hover:text-white p-1.5 rounded-md hover:bg-slate-700 mr-2"
+      >
+        {isPromptVisible ? 'Hide Prompt' : 'Show Prompt'}
       </button>
 
       <button

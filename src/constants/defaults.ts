@@ -1,41 +1,42 @@
 export const DEFAULT_PROMPT = `what is 2 + 2`;
 
-export const DEFAULT_JSON_SCHEMA = `{
+export const DEFAULT_JSON_SCHEMA = `
+{
+  "type": "object",
+  "properties": {
+    "steps": {
+      "type": "array",
+      "description": "A sequence of steps involved in the process.",
+      "items": {
         "type": "object",
         "properties": {
-          "steps": {
-            "type": "array",
-            "description": "A sequence of steps involved in the process.",
-            "items": {
-              "type": "object",
-              "properties": {
-                "description": {
-                  "type": "string",
-                  "description": "A description of the specific step."
-                },
-                "result": {
-                  "type": "string",
-                  "description": "The outcome of this specific step."
-                }
-              },
-              "required": [
-                "description",
-                "result"
-              ],
-              "additionalProperties": false
-            }
-          },
-          "final_result": {
+          "description": {
             "type": "string",
-            "description": "The final outcome or result of all the steps."
+            "description": "A description of the specific step."
+          },
+          "result": {
+            "type": "string",
+            "description": "The outcome of this specific step."
           }
         },
         "required": [
-          "steps",
-          "final_result"
+          "description",
+          "result"
         ],
         "additionalProperties": false
-      }`;
+      }
+    },
+    "final_result": {
+      "type": "string",
+      "description": "The final outcome or result of all the steps."
+    }
+  },
+  "required": [
+    "steps",
+    "final_result"
+  ],
+  "additionalProperties": false
+}`;
 
 export const EXAMPLE_PROMPTS = {
   normal: [
