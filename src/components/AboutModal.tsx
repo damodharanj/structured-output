@@ -46,8 +46,12 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
             </ul>
           </div>
           <p className="text-center text-sm text-slate-400 mt-4">
+            <a href="https://github.com/damodharanj/structured-output">Github</a>
+          </p>
+          <p className="text-center text-sm text-slate-400 mt-4">
             Made with ❤️ from India
           </p>
+
         </div>
       </div>
     </div>
